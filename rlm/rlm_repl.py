@@ -101,7 +101,7 @@ class RLM_REPL(RLM):
                 assistant_message = {"role": "assistant", "content": "You responded with:\n" + response}
                 self.messages.append(assistant_message)
             
-            # Check for final answer - this is CRITICAL and must be done before returning
+            # Check that model produced a final answer
             final_answer = utils.check_for_final_answer(
                 response, self.repl_env, self.logger,
             )
