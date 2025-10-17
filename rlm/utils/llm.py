@@ -1,5 +1,5 @@
 """
-Unified LLM client with provider routing (OpenAI, xAI Grok, Anthropic Claude, Google Gemini).
+Unified LLM client with provider routing (OpenAI, xAI Grok, Anthropic Claude, Google Gemini, Ollama local).
 Performance-focused, with lazy init and minimal payload conversions.
 """
 
@@ -31,6 +31,7 @@ class OpenAIClient:
     - xAI Grok (OpenAI-compatible): model includes 'grok' (e.g., 'grok-4-latest')
     - Anthropic Claude: model includes 'claude' (e.g., 'claude-4.5-sonnet' or 'claude-sonnet-4.5')
     - Google Gemini: model includes 'gemini' (e.g., 'gemini-2.5-pro')
+    - Ollama (local): model names provided by a local Ollama server (e.g., 'gpt-oss:120b', 'gpt-oss:20b', 'deepseek-coder-v2')
     """
 
     def __init__(self, api_key: Optional[str] = None, model: str = "gpt-5"):
@@ -43,6 +44,12 @@ class OpenAIClient:
             self.provider = "anthropic"
         elif "grok" in ml:
             self.provider = "xai"
+        elif (":" in self.model) or ("ollama" in ml) or any(
+            ml.startswith(p) for p in (
+                "gpt-oss", "llama", "deepseek", "mistral", "qwen", "phi", "mixtral", "aya", "yi", "gemma", "starcoder", "codestral", "vicuna", "nous", "wizardlm"
+            )
+        ):
+            self.provider = "ollama"
         else:
             self.provider = "openai"
 
@@ -50,6 +57,7 @@ class OpenAIClient:
         self._client = None
         self._api_key = api_key  # may be None; resolved per provider lazily
         self._gemini_model = None  # cached GenerativeModel
+        self._ollama_client = None  # cached Ollama Client
 
     # Provider-specific lazy initializers
     def _init_openai(self):
@@ -102,6 +110,16 @@ class OpenAIClient:
         else:
             self._gemini_model = genai.GenerativeModel(self.model)
 
+    def _init_ollama(self):
+        if self._ollama_client is not None:
+            return
+        try:
+            from ollama import Client  # type: ignore
+        except Exception:
+            raise ImportError("ollama package is required for local models. Install 'ollama'.")
+        host = os.getenv("OLLAMA_HOST", os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"))
+        self._ollama_client = Client(host=host)
+
     def completion(
         self,
         messages: List[Dict[str, str]] | Dict[str, str] | str,
@@ -135,6 +153,25 @@ class OpenAIClient:
                 temperature=temp,
             )
             return resp.choices[0].message.content
+
+        if self.provider == "ollama":
+            self._init_ollama()
+            try:
+                options = {"temperature": temp, "num_predict": max_tokens}
+                resp = self._ollama_client.chat(model=self.model, messages=msgs, options=options, keep_alive="5m")
+                # Support both dict and ChatResponse return types
+                try:
+                    content = getattr(getattr(resp, "message", None), "content", None)
+                    if content:
+                        return content
+                except Exception:
+                    pass
+                if isinstance(resp, dict):
+                    msg = resp.get("message") or {}
+                    return msg.get("content", "") or ""
+                return ""
+            except Exception as e:
+                raise RuntimeError(f"Error generating completion (Ollama): {str(e)}")
 
         if self.provider == "anthropic":
             self._init_anthropic()
@@ -187,14 +224,48 @@ class OpenAIClient:
 
             try:
                 generation_config = {"max_output_tokens": max_tokens, "temperature": temp}
-                resp = self._gemini_model.generate_content(
-                    contents=gemini_history if gemini_history else [
-                        {"role": "user", "parts": [""]}
-                    ],
-                    generation_config=generation_config,
-                )
-                # google-generativeai returns text in .text
-                return getattr(resp, "text", "") or ""
+
+                # Optional: relax safety to reduce false positives (keeps high-risk blocks)
+                safety_settings = None
+                try:
+                    from google.generativeai.types import HarmCategory, HarmBlockThreshold  # type: ignore
+                    safety_settings = {
+                        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                        HarmCategory.HARM_CATEGORY_SEXUAL_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    }
+                except Exception:
+                    pass
+
+                kwargs_gc = {
+                    "contents": gemini_history if gemini_history else [{"role": "user", "parts": [""]}],
+                    "generation_config": generation_config,
+                }
+                if safety_settings is not None:
+                    kwargs_gc["safety_settings"] = safety_settings
+
+                resp = self._gemini_model.generate_content(**kwargs_gc)
+
+                # Defensive extraction: avoid using resp.text which may raise
+                text_out = ""
+                try:
+                    candidates = getattr(resp, "candidates", None) or []
+                    for cand in candidates:
+                        content = getattr(cand, "content", None)
+                        parts = getattr(content, "parts", None) or []
+                        for p in parts:
+                            t = getattr(p, "text", None)
+                            if t:
+                                text_out += t
+                        if text_out:
+                            break
+                    if not text_out:
+                        return ""
+                except Exception:
+                    return ""
+
+                return text_out
             except Exception as e:
                 raise RuntimeError(f"Error generating completion (Gemini): {str(e)}")
 

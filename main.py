@@ -6,7 +6,7 @@ def generate_massive_context(num_lines: int = 1_000_000, answer: str = "1298418"
     
     # Set of random words to use
     random_words = ["blah", "random", "text", "data", "content", "information", "sample"]
-    
+
     lines = []
     for _ in range(num_lines):
         num_words = random.randint(3, 8)
@@ -27,11 +27,12 @@ def main():
     context = generate_massive_context(num_lines=1_000_000, answer=answer)
 
     rlm = RLM_REPL(
-        model="gpt-5-nano",
-        recursive_model="gpt-5",
+        model="gpt-oss:20b",
+        recursive_model="gpt-oss:120b",
         enable_logging=True,
         max_iterations=10
     )
+
     query = "I'm looking for a magic number. What is it?"
     result = rlm.completion(context=context, query=query)
     print(f"Result: {result}. Expected: {answer}")

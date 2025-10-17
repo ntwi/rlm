@@ -41,6 +41,8 @@ final_answer = llm_query(f"Based on these summaries, answer the original query: 
 ```
 In the next step, we can return FINAL_VAR(final_answer).
 
+CRITICAL OUTPUT FORMAT REQUIREMENT: Do not use structured tool/function calls or JSON tool calls. Only respond in plain text. To run code, emit fenced blocks using ```repl ...``` and nothing else. Never call tools/functions in JSON.
+
 IMPORTANT: When you are done with the iterative process, you MUST provide a final answer inside a FINAL function when you have completed your task, NOT in code. Do not use these tags unless you have completed your task. You have two options:
 1. Use FINAL(your final answer here) to provide the answer directly
 2. Use FINAL_VAR(variable_name) to return a variable you have created in the REPL environment as your final output

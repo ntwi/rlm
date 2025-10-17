@@ -38,13 +38,20 @@ The unified client now supports multiple providers with performance‑oriented d
 - Google Gemini: gemini-2.5-pro. Set GOOGLE_API_KEY.
 - xAI Grok: grok4-latest (OpenAI‑compatible). Set XAI_API_KEY and optional XAI_BASE_URL (defaults to https://api.x.ai/v1).
 - Anthropic Claude: claude-sonnet-4.5 (and other Claude models). Set ANTHROPIC_API_KEY.
+- Ollama (local): e.g., gpt-oss:120b, gpt-oss:20b, deepseek-coder-v2. Requires a running Ollama server. Optional OLLAMA_HOST (defaults to http://localhost:11434).
 
 Usage example (choose your model):
 
 ```python
 from rlm.rlm_repl import RLM_REPL
+# Cloud example
 rlm = RLM_REPL(model="gemini-2.5-pro", recursive_model="claude-sonnet-4.5", enable_logging=True)
 answer = rlm.completion(context="...big context...", query="Your question")
+
+# Local (Ollama) example
+# Make sure Ollama is running and the model exists locally: e.g., `ollama pull gpt-oss:20b`
+rlm_local = RLM_REPL(model="gpt-oss:20b", recursive_model="gpt-oss:20b", enable_logging=True)
+answer_local = rlm_local.completion(context="...big context...", query="Your question")
 ```
 
 Environment configuration (.env):
@@ -56,6 +63,7 @@ GOOGLE_API_KEY=...
 XAI_API_KEY=...
 # Optional
 XAI_BASE_URL=https://api.x.ai/v1
+OLLAMA_HOST=http://localhost:11434
 ```
 
 Performance tips:
