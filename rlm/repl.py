@@ -17,13 +17,11 @@ class Sub_RLM(RLM):
     
     def __init__(self, model: str = "gpt-5"):
         # Configuration - model can be specified
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is required")
-        
+        # Defer API key validation to the unified client (supports multiple providers)
+        self.api_key = None
         self.model = model
 
-        # Initialize OpenAI client
+        # Initialize unified client
         from rlm.utils.llm import OpenAIClient
         self.client = OpenAIClient(api_key=self.api_key, model=model)
         

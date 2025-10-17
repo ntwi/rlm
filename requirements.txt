@@ -1,3 +1,6 @@
 openai
 dotenv
 rich
+anthropic
+google-generativeai
+python-dotenv

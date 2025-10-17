@@ -30,3 +30,36 @@ pip install rich
 When you run your code, you'll see something like this:
 
 ![Example logging output using `rich`](media/rich.png)
+
+## Provider Support and Models
+The unified client now supports multiple providers with performance‑oriented defaults (lazy initialization, short payloads, HTTP keep‑alive via SDKs):
+
+- OpenAI: e.g., gpt-5, gpt-4o, etc. Set OPENAI_API_KEY.
+- Google Gemini: gemini-2.5-pro. Set GOOGLE_API_KEY.
+- xAI Grok: grok4-latest (OpenAI‑compatible). Set XAI_API_KEY and optional XAI_BASE_URL (defaults to https://api.x.ai/v1).
+- Anthropic Claude: claude-sonnet-4.5 (and other Claude models). Set ANTHROPIC_API_KEY.
+
+Usage example (choose your model):
+
+```python
+from rlm.rlm_repl import RLM_REPL
+rlm = RLM_REPL(model="gemini-2.5-pro", recursive_model="claude-sonnet-4.5", enable_logging=True)
+answer = rlm.completion(context="...big context...", query="Your question")
+```
+
+Environment configuration (.env):
+
+```
+OPENAI_API_KEY=...
+ANTHROPIC_API_KEY=...
+GOOGLE_API_KEY=...
+XAI_API_KEY=...
+# Optional
+XAI_BASE_URL=https://api.x.ai/v1
+```
+
+Performance tips:
+- Prefer concise prompts and low temperature (default 0.2) for determinism and speed.
+- Reuse the same RLM_REPL instance to keep provider clients warm.
+- Use the REPL’s llm_query to chunk large contexts and summarize incrementally.
+- Set max_iterations appropriately; default is 20 in RLM_REPL and 10 in main’s example.
