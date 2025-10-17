@@ -27,10 +27,12 @@ class RLM_REPL(RLM):
                  max_iterations: int = 20,
                  depth: int = 0,
                  enable_logging: bool = False,
+                 allow_ollama_tools: bool = False,
                  ):
         self.api_key = api_key
         self.model = model
         self.recursive_model = recursive_model
+        self.allow_ollama_tools = allow_ollama_tools
         self.llm = OpenAIClient(api_key, model) # Replace with other client
         
         # Track recursive call depth to prevent infinite loops
@@ -61,6 +63,12 @@ class RLM_REPL(RLM):
 
         # Initialize the conversation with the REPL prompt
         self.messages = build_system_prompt()
+        # If using Ollama and tools are not allowed, add an anti-tool directive
+        if getattr(self.llm, "provider", None) == "ollama" and not getattr(self, "allow_ollama_tools", False):
+            self.messages.insert(0, {
+                "role": "system",
+                "content": "IMPORTANT: Do not use structured tool/function calls or JSON tool calls. Only respond in plain text. To run code, emit fenced blocks using ```repl ...``` and nothing else. Never call functions in JSON."
+            })
         self.logger.log_initial_messages(self.messages)
         
         # Initialize REPL environment with context data
@@ -89,7 +97,7 @@ class RLM_REPL(RLM):
             response = ""
             used_tools = False
 
-            if getattr(self.llm, "provider", None) == "ollama":
+            if getattr(self.llm, "provider", None) == "ollama" and getattr(self, "allow_ollama_tools", False):
                 # Initialize Ollama client if needed
                 try:
                     self.llm._init_ollama()

@@ -27,10 +27,11 @@ def main():
     context = generate_massive_context(num_lines=1_000_000, answer=answer)
 
     rlm = RLM_REPL(
-        model="gpt-oss:20b",
-        recursive_model="gpt-oss:120b",
+        model="qwen3-coder:latest",
+        recursive_model="deepseek-coder:33b",
         enable_logging=True,
-        max_iterations=10
+        max_iterations=10,
+        allow_ollama_tools=True
     )
 
     query = "I'm looking for a magic number. What is it?"
